@@ -1,0 +1,459 @@
+name: Build Live Wallpaper APK
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.4'
+
+      - name: Create project files
+        run: |
+          mkdir -p app/src/main/java/com/example/livewallpaper
+          mkdir -p app/src/main/res/layout
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/color
+          mkdir -p app/src/main/res/xml
+
+          cat << 'EOF' > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "LiveWallpaper"
+          include ':app'
+          EOF
+
+          cat << 'EOF' > build.gradle
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+          }
+          EOF
+
+          cat << 'EOF' > gradle.properties
+          org.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
+
+          cat << 'EOF' > app/build.gradle
+          plugins {
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
+          }
+
+          android {
+              namespace 'com.example.livewallpaper'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.example.livewallpaper"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.core:core-ktx:1.12.0'
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+              implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+              <uses-feature
+                  android:name="android.software.live_wallpaper"
+                  android:required="true" />
+
+              <application
+                  android:allowBackup="false"
+                  android:label="@string/app_name"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.LiveWallpaper">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+
+                  <activity
+                      android:name=".SettingsActivity"
+                      android:exported="false" />
+
+                  <activity
+                      android:name=".PreviewActivity"
+                      android:exported="false"
+                      android:theme="@style/Theme.LiveWallpaper.Fullscreen" />
+
+                  <service
+                      android:name=".LiveWallpaperService"
+                      android:enabled="true"
+                      android:exported="true"
+                      android:label="@string/app_name"
+                      android:permission="android.permission.BIND_WALLPAPER">
+                      <intent-filter>
+                          <action android:name="android.service.wallpaper.WallpaperService" />
+                      </intent-filter>
+                      <meta-data
+                          android:name="android.service.wallpaper"
+                          android:resource="@xml/wallpaper" />
+                  </service>
+              </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/xml/wallpaper.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
+              android:description="@string/app_name"
+              android:settingsActivity="com.example.livewallpaper.SettingsActivity" />
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/strings.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Live Wallpaper</string>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/colors.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="bg_color">#FFFFFF</color>
+              <color name="text_primary">#121212</color>
+              <color name="text_secondary">#4A4A4A</color>
+              <color name="section_label">#B3261E</color>
+              <color name="accent_red">#E53935</color>
+              <color name="clear_btn_bg">#7A3B3D</color>
+              <color name="dropdown_popup_bg">#F5EBE9</color>
+              <color name="outline_unfocused">#8E8E8E</color>
+              <color name="outline_focused">#E57373</color>
+              <color name="switch_thumb_on">#8C1D18</color>
+              <color name="switch_track_on">#F2B8B5</color>
+              <color name="switch_thumb_off">#8E8E8E</color>
+              <color name="switch_track_off">#D6D6D6</color>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values-night/colors.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="bg_color">#000000</color>
+              <color name="text_primary">#E6E1E5</color>
+              <color name="text_secondary">#CAC4D0</color>
+              <color name="section_label">#F2B8B5</color>
+              <color name="accent_red">#E53935</color>
+              <color name="clear_btn_bg">#7A3B3D</color>
+              <color name="dropdown_popup_bg">#251D1D</color>
+              <color name="outline_unfocused">#6E6868</color>
+              <color name="outline_focused">#F2B8B5</color>
+              <color name="switch_thumb_on">#8C1D18</color>
+              <color name="switch_track_on">#F2B8B5</color>
+              <color name="switch_thumb_off">#9E9E9E</color>
+              <color name="switch_track_off">#3A3333</color>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/values/styles.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="Theme.LiveWallpaper" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+                  <item name="android:windowBackground">@color/bg_color</item>
+                  <item name="android:statusBarColor">@color/bg_color</item>
+                  <item name="android:navigationBarColor">@color/bg_color</item>
+                  <item name="colorPrimary">@color/accent_red</item>
+                  <item name="colorSurface">@color/dropdown_popup_bg</item>
+                  <item name="colorOnSurface">@color/text_primary</item>
+              </style>
+
+              <style name="Theme.LiveWallpaper.Fullscreen" parent="Theme.LiveWallpaper">
+                  <item name="android:windowBackground">#000000</item>
+                  <item name="android:statusBarColor">@android:color/transparent</item>
+                  <item name="android:navigationBarColor">@android:color/transparent</item>
+              </style>
+          </resources>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/color/dropdown_stroke.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <selector xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:color="@color/outline_focused" android:state_focused="true" />
+              <item android:color="@color/outline_focused" android:state_activated="true" />
+              <item android:color="@color/outline_unfocused" />
+          </selector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/color/switch_thumb.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <selector xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:color="@color/switch_thumb_on" android:state_checked="true" />
+              <item android:color="@color/switch_thumb_off" />
+          </selector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/color/switch_track.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <selector xmlns:android="http://schemas.android.com/apk/res/android">
+              <item android:color="@color/switch_track_on" android:state_checked="true" />
+              <item android:color="@color/switch_track_off" />
+          </selector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/ic_settings.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="@color/text_primary"
+                  android:pathData="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z" />
+          </vector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/ic_back.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="@color/text_primary"
+                  android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z" />
+          </vector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/ic_video_file.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M14,2H6c-1.1,0 -1.99,0.9 -1.99,2L4,20c0,1.1 0.89,2 1.99,2H18c1.1,0 2,-0.9 2,-2V8l-6,-6zM16,18l-2.5,-1.5V18H8v-5h5.5v1.5L16,13v5zM13,9V3.5L18.5,9H13z" />
+          </vector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/ic_image_file.xml
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M19,3H5c-1.1,0 -2,0.9 -2,2v14c0,1.1 0.9,2 2,2h14c1.1,0 2,-0.9 2,-2V5c0,-1.1 -0.9,-2 -2,-2zM5,17l3.5,-4.5 2.5,3.01L14.5,11l4.5,6H5z" />
+          </vector>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/bg_pill_red.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <ripple xmlns:android="http://schemas.android.com/apk/res/android"
+              android:color="#33FFFFFF">
+              <item>
+                  <shape android:shape="rectangle">
+                      <solid android:color="@color/accent_red" />
+                      <corners android:radius="100dp" />
+                  </shape>
+              </item>
+          </ripple>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/bg_pill_clear.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <ripple xmlns:android="http://schemas.android.com/apk/res/android"
+              android:color="#33FFFFFF">
+              <item>
+                  <shape android:shape="rectangle">
+                      <solid android:color="@color/clear_btn_bg" />
+                      <corners android:radius="100dp" />
+                  </shape>
+              </item>
+          </ripple>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/bg_frosted_glass.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="rectangle">
+              <gradient
+                  android:angle="135"
+                  android:endColor="#2EFFFFFF"
+                  android:startColor="#52FFFFFF" />
+              <stroke
+                  android:width="1dp"
+                  android:color="#73FFFFFF" />
+              <corners android:radius="100dp" />
+          </shape>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/drawable/bg_circle_translucent.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"
+              android:shape="oval">
+              <solid android:color="#55000000" />
+              <stroke
+                  android:width="1dp"
+                  android:color="#40FFFFFF" />
+          </shape>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/layout/activity_main.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
+              android:layout_width="match_parent"
+              android:layout_height="match_parent"
+              android:background="@color/bg_color"
+              android:paddingHorizontal="24dp"
+              android:paddingTop="16dp">
+
+              <TextView
+                  android:id="@+id/tvTitle"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:fontFamily="sans-serif-light"
+                  android:text="Live Wallpaper"
+                  android:textColor="@color/text_primary"
+                  android:textSize="22sp"
+                  app:layout_constraintBottom_toBottomOf="@id/btnSettings"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="@id/btnSettings" />
+
+              <ImageButton
+                  android:id="@+id/btnSettings"
+                  android:layout_width="44dp"
+                  android:layout_height="44dp"
+                  android:background="?attr/selectableItemBackgroundBorderless"
+                  android:contentDescription="Settings"
+                  android:padding="10dp"
+                  android:src="@drawable/ic_settings"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintTop_toTopOf="parent" />
+
+              <LinearLayout
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:gravity="center"
+                  android:orientation="vertical"
+                  app:layout_constraintBottom_toBottomOf="parent"
+                  app:layout_constraintEnd_toEndOf="parent"
+                  app:layout_constraintStart_toStartOf="parent"
+                  app:layout_constraintTop_toTopOf="parent">
+
+                  <LinearLayout
+                      android:id="@+id/btnPickVideo"
+                      android:layout_width="210dp"
+                      android:layout_height="54dp"
+                      android:background="@drawable/bg_pill_red"
+                      android:clickable="true"
+                      android:focusable="true"
+                      android:gravity="center"
+                      android:orientation="horizontal"
+                      android:paddingHorizontal="24dp">
+
+                      <ImageView
+                          android:layout_width="22dp"
+                          android:layout_height="22dp"
+                          android:layout_marginEnd="12dp"
+                          android:src="@drawable/ic_video_file" />
+
+                      <TextView
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:fontFamily="sans-serif-light"
+                          android:text="Video"
+                          android:textColor="#FFFFFF"
+                          android:textSize="19sp" />
+                  </LinearLayout>
+
+                  <LinearLayout
+                      android:id="@+id/btnPickImage"
+                      android:layout_width="210dp"
+                      android:layout_height="54dp"
+                      android:layout_marginTop="18dp"
+                      android:background="@drawable/bg_pill_red"
+                      android:clickable="true"
+                      android:focusable="true"
+                      android:gravity="center"
+                      android:orientation="horizontal"
+                      android:paddingHorizontal="24dp">
+
+                      <ImageView
+                          android:layout_width="22dp"
+                          android:layout_height="22dp"
+                          android:layout_marginEnd="12dp"
+                          android:src="@drawable/ic_image_file" />
+
+                      <TextView
+                          android:layout_width="wrap_content"
+                          android:layout_height="wrap_content"
+                          android:fontFamily="sans-serif-light"
+                          android:text="Image"
+                          android:textColor="#FFFFFF"
+                          android:textSize="19sp" />
+                  </LinearLayout>
+              </LinearLayout>
+
+          </androidx.constraintlayout.widget.ConstraintLayout>
+          EOF
+
+          cat << 'EOF' > app/src/main/res/layout/item_dropdown.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <TextView xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:fontFamily="sans-serif-light"
+              android:paddingHorizontal="16dp"
+              android:paddingVertical="14d
